@@ -1,0 +1,123 @@
+version: "0.1"
+name: "Moral Policy - General Default"
+default_decision: "allow"
+
+tiers:
+  T0: { friction: "none" }
+  T1: { friction: "confirm_if_ambiguous" }
+  T2: { friction: "explicit_consent" }
+  T3: { friction: "explicit_consent+rollback" }
+
+matchers:
+  # Tool-name patterns (works across most tool naming conventions)
+  t2_tool_patterns:
+    - "(^|\\.)send($|\\.)"        # email/message sending
+    - "(^|\\.)post($|\\.)"
+    - "(^|\\.)publish($|\\.)"
+    - "(^|\\.)login($|\\.)"
+    - "(^|\\.)auth($|\\.)"
+    - "(^|\\.)payment($|\\.)"
+    - "(^|\\.)purchase($|\\.)"
+    - "(^|\\.)upload($|\\.)"
+    - "(^|\\.)share($|\\.)"
+    - "(^|\\.)export($|\\.)"
+    - "(^|\\.)invite($|\\.)"
+    - "(^|\\.)calendar\\.create($|\\.)"
+
+  t3_tool_patterns:
+    - "(^|\\.)exec($|\\.)"
+    - "(^|\\.)run($|\\.)"
+    - "(^|\\.)shell($|\\.)"
+    - "(^|\\.)ssh($|\\.)"
+    - "(^|\\.)deploy($|\\.)"
+    - "(^|\\.)restart($|\\.)"
+    - "(^|\\.)delete($|\\.)"
+    - "(^|\\.)drop($|\\.)"
+    - "(^|\\.)format($|\\.)"
+    - "(^|\\.)firewall($|\\.)"
+    - "(^|\\.)dns($|\\.)"
+    - "(^|\\.)iam($|\\.)"
+    - "(^|\\.)permissions($|\\.)"
+    - "(^|\\.)secrets($|\\.)"
+
+  sensitive_arg_keys:
+    - "password"
+    - "pass"
+    - "token"
+    - "apiKey"
+    - "secret"
+    - "cookie"
+    - "authorization"
+    - "privateKey"
+    - "seed"
+    - "sshKey"
+    - "session"
+
+  irreversible_tokens:
+    - "rm -rf"
+    - "drop"
+    - "format"
+    - "truncate"
+    - "wipe"
+    - "revoke"
+    - "disable"
+    - "delete"
+    - "--force"
+    - "--no-preserve-root"
+
+rules:
+  # C1 — scope/authority: require a reason for any action
+  - id: C1_reason_required
+    tier: T1
+    require: ["reason_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "Add a short reason/goal for this action."
+
+  # C2 — no fabrication: must bind claims to tool results (implemented in engine as a hard invariant)
+  - id: C2_no_fabrication
+    tier: T1
+    require: ["bind_to_tool_result"]
+    on_fail:
+      decision: "deny"
+      message: "Cannot proceed: tool claims must be grounded in verified tool output."
+
+  # C7/C8 — privacy/consent & no theft: sensitive args or comms require explicit consent
+  - id: C7C8_sensitive_requires_consent
+    tier: T2
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t2_tool_patterns"
+        - args_contain_any_keys: "$matchers.sensitive_arg_keys"
+    require: ["explicit_consent"]
+    on_fail:
+      decision: "ask_user"
+      message: "This action is sensitive (comms/credentials/data). Confirm explicit consent to proceed."
+
+  # C4 — sabbath/reflection: critical tools require consent + rollback
+  - id: C4_t3_requires_rollback
+    tier: T3
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t3_tool_patterns"
+        - args_contain_any_values: "$matchers.irreversible_tokens"
+    require: ["explicit_consent", "rollback_plan_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "High-impact action needs explicit consent and a rollback plan."
+
+  # C9 — truthfulness: if uncertainty is detected, force assumption labels (engine can ‘allow_with_changes’)
+  - id: C9_label_assumptions
+    tier: T1
+    require: ["assumptions_labeled"]
+    on_fail:
+      decision: "allow_with_changes"
+      message: "Proceeding, but I will restate assumptions/uncertainty explicitly."
+
+  # C10 — no goal drift: action must clearly support the stated reason
+  - id: C10_no_goal_drift
+    tier: T2
+    require: ["action_advances_reason"]
+    on_fail:
+      decision: "deny"
+      message: "Action doesn’t clearly serve the stated goal."

@@ -1,0 +1,21 @@
+{
+  "name": "@your-scope/openclaw-moral-policy",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "policy", "skills", "openclaw.plugin.json", "examples"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "moral-policy",
+  "name": "Moral Policy Guard",
+  "description": "A Decalogue-derived policy gate for agent tool calls (generic default).",
+  "version": "0.1.0",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "policyPath": { "type": "string" },
+      "auditLogPath": { "type": "string" },
+      "gatewayBaseUrl": { "type": "string" },
+      "requireExplicitConsentForT3": { "type": "boolean" },
+      "requireRollbackForT3": { "type": "boolean" }
+    }
+  },
+  "uiHints": {
+    "policyPath": { "label": "Policy file path", "placeholder": "./policy/moral-policy.yaml" },
+    "auditLogPath": { "label": "Audit log path", "placeholder": "~/.openclaw/logs/moral-policy.jsonl" },
+    "gatewayBaseUrl": { "label": "Gateway base URL", "placeholder": "http://127.0.0.1:18789" }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "tools": {
+    "allow": [
+      "policy_invoke",
+      "web.fetch",
+      "browser.read",
+      "files.read",
+      "apply_patch"
+    ],
+    "deny": [
+      "system.run",
+      "nodes.run",
+      "exec",
+      "group:exec"
+    ]
+  }
+}

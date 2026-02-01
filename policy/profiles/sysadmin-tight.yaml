@@ -1,0 +1,115 @@
+version: "0.1"
+name: "Moral Policy - SysAdmin Tight"
+default_decision: "allow"
+
+tiers:
+  T0: { friction: "none" }
+  T1: { friction: "confirm_if_ambiguous" }
+  T2: { friction: "explicit_consent" }
+  T3: { friction: "explicit_consent+rollback+change_ticket" }
+
+matchers:
+  # Treat broad infrastructure activity as high-impact
+  t3_tool_patterns:
+    - "(^|\\.)exec($|\\.)"
+    - "(^|\\.)run($|\\.)"
+    - "(^|\\.)shell($|\\.)"
+    - "(^|\\.)ssh($|\\.)"
+    - "(^|\\.)sudo($|\\.)"
+    - "(^|\\.)system($|\\.)"
+    - "(^|\\.)nodes($|\\.)"
+    - "(^|\\.)k8s($|\\.)"
+    - "(^|\\.)kubectl($|\\.)"
+    - "(^|\\.)docker($|\\.)"
+    - "(^|\\.)terraform($|\\.)"
+    - "(^|\\.)ansible($|\\.)"
+    - "(^|\\.)deploy($|\\.)"
+    - "(^|\\.)restart($|\\.)"
+    - "(^|\\.)stop($|\\.)"
+    - "(^|\\.)kill($|\\.)"
+    - "(^|\\.)delete($|\\.)"
+    - "(^|\\.)firewall($|\\.)"
+    - "(^|\\.)dns($|\\.)"
+    - "(^|\\.)iam($|\\.)"
+    - "(^|\\.)permissions($|\\.)"
+    - "(^|\\.)secrets($|\\.)"
+    - "(^|\\.)db\\.(drop|migrate)($|\\.)"
+
+  # Dangerous shell tokens that should be blocked unless explicitly overridden
+  hard_block_tokens:
+    - "rm -rf /"
+    - "rm -rf /*"
+    - ":(){:|:&};:"
+    - "mkfs"
+    - "dd if="
+    - "> /dev/sd"
+    - "shutdown"
+    - "reboot"
+    - "iptables -F"
+    - "ufw disable"
+    - "chmod 777"
+    - "chown -R"
+    - "curl | sh"
+    - "wget | sh"
+
+  sensitive_arg_keys:
+    - "password"
+    - "token"
+    - "apiKey"
+    - "secret"
+    - "cookie"
+    - "authorization"
+    - "privateKey"
+    - "seed"
+    - "sshKey"
+    - "session"
+
+rules:
+  - id: C1_reason_required
+    tier: T1
+    require: ["reason_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "Sysadmin actions require a clear reason/goal."
+
+  - id: C3_credentials_boundary
+    tier: T3
+    when:
+      any:
+        - args_contain_any_keys: "$matchers.sensitive_arg_keys"
+    require: ["explicit_consent"]
+    on_fail:
+      decision: "ask_user"
+      message: "This may involve secrets/credentials. Confirm explicit consent and do not paste secrets."
+
+  # Hard block: extremely dangerous tokens
+  - id: HARD_block_destruction_tokens
+    tier: T3
+    when:
+      any:
+        - args_contain_any_values: "$matchers.hard_block_tokens"
+    require: ["explicit_override"]
+    on_fail:
+      decision: "deny"
+      message: "Blocked: command contains high-destruction patterns (requires explicit override)."
+
+  # Main gate: most sysadmin tools require consent + rollback + change ticket
+  - id: C4_t3_requires_consent_rollback_ticket
+    tier: T3
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t3_tool_patterns"
+    require: ["explicit_consent", "rollback_plan_present", "change_ticket_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "High-impact sysadmin action needs: explicit consent + rollback plan + change ticket/reference."
+
+  - id: C10_no_goal_drift
+    tier: T3
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t3_tool_patterns"
+    require: ["action_advances_reason"]
+    on_fail:
+      decision: "deny"
+      message: "Action doesn’t clearly serve the stated sysadmin goal."

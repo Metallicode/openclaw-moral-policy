@@ -1,0 +1,63 @@
+version: "0.1"
+name: "Moral Policy (Decalogue-derived) - Generic Default"
+default_decision: "allow"
+
+tiers:
+  T0: { friction: "none" }
+  T1: { friction: "confirm_if_ambiguous" }
+  T2: { friction: "explicit_consent" }
+  T3: { friction: "explicit_consent+rollback" }
+
+matchers:
+  high_risk_tool_name_patterns:
+    - "(^|\\.)exec($|\\.)"
+    - "(^|\\.)run($|\\.)"
+    - "(^|\\.)shell($|\\.)"
+    - "(^|\\.)ssh($|\\.)"
+    - "(^|\\.)deploy($|\\.)"
+    - "(^|\\.)restart($|\\.)"
+    - "(^|\\.)delete($|\\.)"
+    - "(^|\\.)send($|\\.)"
+    - "(^|\\.)login($|\\.)"
+    - "(^|\\.)credentials($|\\.)"
+    - "(^|\\.)secrets($|\\.)"
+  sensitive_arg_keys:
+    - "password"
+    - "token"
+    - "apiKey"
+    - "secret"
+    - "cookie"
+    - "authorization"
+    - "privateKey"
+    - "seed"
+  irreversible_tokens:
+    - "rm -rf"
+    - "drop"
+    - "format"
+    - "truncate"
+    - "wipe"
+    - "revoke"
+
+rules:
+  - id: C1_reason_required
+    tier: T1
+    require: ["reason_present"]
+    on_fail: { decision: "ask_user", message: "Add a short reason/goal for this action." }
+
+  - id: C3_sensitive_requires_consent
+    tier: T2
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.high_risk_tool_name_patterns"
+        - args_contain_any_keys: "$matchers.sensitive_arg_keys"
+    require: ["explicit_consent"]
+    on_fail: { decision: "ask_user", message: "This looks sensitive. Confirm explicit consent to proceed." }
+
+  - id: C4_t3_requires_rollback
+    tier: T3
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.high_risk_tool_name_patterns"
+        - args_contain_any_values: "$matchers.irreversible_tokens"
+    require: ["explicit_consent", "rollback_plan_present"]
+    on_fail: { decision: "ask_user", message: "High-impact action needs explicit consent and a rollback plan." }
