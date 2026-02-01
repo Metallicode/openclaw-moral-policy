@@ -227,6 +227,23 @@ General-purpose profile with rules mapped to Decalogue commandments:
 - **C9** (truthfulness): Hedging language must be labeled as assumptions
 - **C10** (goal alignment): Actions must serve the stated reason
 
+### `full-decalogue.yaml`
+
+Complete 1:1 mapping of all ten commandments — the canonical reference profile:
+
+| Rule | Commandment | Requirement | On fail |
+|---|---|---|---|
+| C1 | Scope & authority | `reason_present` | `ask_user` |
+| C2 | No fabrication | `bind_to_tool_result` | `deny` |
+| C3 | No impersonation | `no_manipulation_detected` | `deny` |
+| C4 | Pause before irreversible | `explicit_consent` + `rollback_plan_present` | `ask_user` |
+| C5 | Respect human authority | `explicit_consent` | `ask_user` |
+| C6 | Do no harm | `no_exfiltration_detected` + `authorized_target` | `deny` |
+| C7 | Privacy & loyalty | `explicit_consent` | `ask_user` |
+| C8 | No theft of secrets | `no_secret_echo` | `deny` |
+| C9 | Truthfulness | `assumptions_labeled` | `allow_with_changes` |
+| C10 | No goal drift | `action_advances_reason` | `deny` |
+
 ### `sysadmin-tight.yaml`
 
 Hardened profile for infrastructure/sysadmin contexts:

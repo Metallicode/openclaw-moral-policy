@@ -1,0 +1,189 @@
+version: "0.1"
+name: "Moral Policy - Full Decalogue"
+default_decision: "allow"
+
+# ──────────────────────────────────────────────────────────────────
+#  Commandment mapping
+#
+#  C1  No other gods        → Scope & authority: act only within mandate
+#  C2  No graven images     → No fabrication: ground claims in tool output
+#  C3  Name in vain         → No impersonation / prompt manipulation
+#  C4  Remember the sabbath → Pause & reflect before irreversible actions
+#  C5  Honour parents       → Respect human authority hierarchy
+#  C6  Thou shalt not kill  → Do no harm: no exfiltration, no rogue targets
+#  C7  No adultery          → Privacy & loyalty: protect personal data
+#  C8  Thou shalt not steal → No theft of secrets or credentials
+#  C9  No false witness     → Truthfulness: label uncertainty as assumptions
+#  C10 Thou shalt not covet → No goal drift: actions serve the stated reason
+# ──────────────────────────────────────────────────────────────────
+
+tiers:
+  T0: { friction: "none" }
+  T1: { friction: "confirm_if_ambiguous" }
+  T2: { friction: "explicit_consent" }
+  T3: { friction: "explicit_consent+rollback" }
+
+matchers:
+  t2_tool_patterns:
+    - "(^|\\.)send($|\\.)"
+    - "(^|\\.)post($|\\.)"
+    - "(^|\\.)publish($|\\.)"
+    - "(^|\\.)login($|\\.)"
+    - "(^|\\.)auth($|\\.)"
+    - "(^|\\.)payment($|\\.)"
+    - "(^|\\.)purchase($|\\.)"
+    - "(^|\\.)upload($|\\.)"
+    - "(^|\\.)share($|\\.)"
+    - "(^|\\.)export($|\\.)"
+    - "(^|\\.)invite($|\\.)"
+    - "(^|\\.)calendar\\.create($|\\.)"
+
+  t3_tool_patterns:
+    - "(^|\\.)exec($|\\.)"
+    - "(^|\\.)run($|\\.)"
+    - "(^|\\.)shell($|\\.)"
+    - "(^|\\.)ssh($|\\.)"
+    - "(^|\\.)deploy($|\\.)"
+    - "(^|\\.)restart($|\\.)"
+    - "(^|\\.)delete($|\\.)"
+    - "(^|\\.)drop($|\\.)"
+    - "(^|\\.)format($|\\.)"
+    - "(^|\\.)firewall($|\\.)"
+    - "(^|\\.)dns($|\\.)"
+    - "(^|\\.)iam($|\\.)"
+    - "(^|\\.)permissions($|\\.)"
+    - "(^|\\.)secrets($|\\.)"
+
+  sensitive_arg_keys:
+    - "password"
+    - "pass"
+    - "token"
+    - "apiKey"
+    - "secret"
+    - "cookie"
+    - "authorization"
+    - "privateKey"
+    - "seed"
+    - "sshKey"
+    - "session"
+
+  irreversible_tokens:
+    - "rm -rf"
+    - "drop"
+    - "format"
+    - "truncate"
+    - "wipe"
+    - "revoke"
+    - "disable"
+    - "delete"
+    - "--force"
+    - "--no-preserve-root"
+
+rules:
+  # ── C1 · Scope & authority ────────────────────────────────────
+  # The agent must not act without a stated purpose.
+  - id: C1_scope_and_authority
+    tier: T1
+    require: ["reason_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "C1: Every action requires a stated reason/goal."
+
+  # ── C2 · No fabrication ───────────────────────────────────────
+  # Claims must be grounded in verified tool output, not invented.
+  - id: C2_no_fabrication
+    tier: T1
+    require: ["bind_to_tool_result"]
+    on_fail:
+      decision: "deny"
+      message: "C2: Tool claims must be grounded in verified tool output, not fabricated."
+
+  # ── C3 · No impersonation or manipulation ─────────────────────
+  # Args must not contain prompt-injection or identity-hijacking patterns.
+  - id: C3_no_manipulation
+    tier: T2
+    require: ["no_manipulation_detected"]
+    on_fail:
+      decision: "deny"
+      message: "C3: Prompt injection or identity manipulation pattern detected in tool args."
+
+  # ── C4 · Pause before irreversible actions ────────────────────
+  # High-impact tools and destructive commands need consent + rollback plan.
+  - id: C4_reflect_before_irreversible
+    tier: T3
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t3_tool_patterns"
+        - args_contain_any_values: "$matchers.irreversible_tokens"
+    require: ["explicit_consent", "rollback_plan_present"]
+    on_fail:
+      decision: "ask_user"
+      message: "C4: Irreversible or high-impact action — provide explicit consent and a rollback plan."
+
+  # ── C5 · Respect human authority ──────────────────────────────
+  # Sensitive operations (T2 tools, credential args) require explicit human approval.
+  - id: C5_respect_authority
+    tier: T2
+    when:
+      any:
+        - tool_name_matches_any: "$matchers.t2_tool_patterns"
+        - args_contain_any_keys: "$matchers.sensitive_arg_keys"
+    require: ["explicit_consent"]
+    on_fail:
+      decision: "ask_user"
+      message: "C5: This action requires explicit human approval before proceeding."
+
+  # ── C6 · Do no harm ──────────────────────────────────────────
+  # No data exfiltration and no connections to unauthorized targets.
+  - id: C6_no_exfiltration
+    tier: T2
+    require: ["no_exfiltration_detected"]
+    on_fail:
+      decision: "deny"
+      message: "C6: Potential data exfiltration detected (suspicious URL or command)."
+
+  - id: C6_authorized_targets
+    tier: T2
+    require: ["authorized_target"]
+    on_fail:
+      decision: "deny"
+      message: "C6: Suspicious target detected (IP:high-port pattern — possible reverse shell)."
+
+  # ── C7 · Privacy & loyalty ────────────────────────────────────
+  # Sensitive data tools require consent; personal data must not leak.
+  - id: C7_privacy
+    tier: T2
+    when:
+      any:
+        - args_contain_any_keys: "$matchers.sensitive_arg_keys"
+    require: ["explicit_consent"]
+    on_fail:
+      decision: "ask_user"
+      message: "C7: This action involves sensitive/personal data — confirm consent to proceed."
+
+  # ── C8 · No theft of secrets ──────────────────────────────────
+  # Args must not contain or echo known secret formats.
+  - id: C8_no_secret_theft
+    tier: T2
+    require: ["no_secret_echo"]
+    on_fail:
+      decision: "deny"
+      message: "C8: Known secret or credential format detected in tool args."
+
+  # ── C9 · Truthfulness ────────────────────────────────────────
+  # Hedging language must be explicitly labeled as assumptions.
+  - id: C9_truthfulness
+    tier: T1
+    require: ["assumptions_labeled"]
+    on_fail:
+      decision: "allow_with_changes"
+      message: "C9: Uncertainty detected — restating with explicit [assumption] labels."
+
+  # ── C10 · No goal drift ──────────────────────────────────────
+  # The action must demonstrably serve the stated reason.
+  - id: C10_no_goal_drift
+    tier: T2
+    require: ["action_advances_reason"]
+    on_fail:
+      decision: "deny"
+      message: "C10: Action does not appear to serve the stated goal."
