@@ -7,70 +7,70 @@ This plugin is inspired by the Ten Commandments as a compact, high-leverage mora
 
 In agentic systems, the moral risk isn’t just “bad answers” — it’s unsafe tool execution. So each commandment is translated into a runtime rule that gates tool calls.
 
-1-“You shall have no other gods before me.” → Scope & authority
+1. “You shall have no other gods before me.” → Scope & authority
 
 Mapped rule(s): C1_scope_and_authority
 
 Reasoning: In agentic systems, “other gods” becomes other sources of authority (unstated goals, hidden objectives, unapproved tasks).
 Requiring a stated reason keeps the agent aligned with legitimate intent and prevents wandering into side actions.
 
-2-“You shall not make idols.” → No fabrication / no false authority
+2. “You shall not make idols.” → No fabrication / no false authority
 
 Mapped rule(s): C2_no_fabrication
 
 Reasoning: An “idol” is a false object of trust. For agents, that’s invented tool output, made-up access, or imaginary confirmations.
 bind_to_tool_result forces the agent to ground its claims in verified tool results instead of hallucination.
 
-3-“You shall not take the name of the Lord your God in vain.” → No impersonation / no manipulation
+3. “You shall not take the name of the Lord your God in vain.” → No impersonation / no manipulation
 
 Mapped rule(s): C3_no_manipulation
 
 Reasoning: “Name in vain” is about misusing identity, authority, and trust. In modern agent terms this includes prompt injection, identity hijacking, and coercive tool-argument manipulation.
 This rule blocks tool calls that show patterns of injection or identity misuse.
 
-4-“Remember the Sabbath day, to keep it holy.” → Pause before irreversible actions
+4. “Remember the Sabbath day, to keep it holy.” → Pause before irreversible actions
 
 Mapped rule(s): C4_reflect_before_irreversible
 
 Reasoning: Sabbath is a structured pause — a deliberate stop before action.
 For agents, the equivalent is friction before irreversible or high-impact tool calls, requiring explicit consent and a rollback plan.
 
-5-“Honor your father and your mother.” → Respect human authority
+5. -“Honor your father and your mother.” → Respect human authority
 
 Mapped rule(s): C5_respect_authority
 
 Reasoning: In an agentic environment, “honor” becomes deference to humans for sensitive decisions.
 This is implemented as explicit human approval before sensitive operations (credential-like args, comms, or other T2 tools).
 
-6-“You shall not murder.” → Do no harm
+6. “You shall not murder.” → Do no harm
 
 Mapped rule(s): C6_no_exfiltration, C6_authorized_targets
 
 Reasoning: The modern “harm” most relevant to system agents is often digital harm: credential theft, data loss, compromise, or enabling attack paths.
 These rules detect suspicious targets and data exfiltration patterns (e.g., reverse shells, high-port IP connections) and deny execution.
 
-7-“You shall not commit adultery.” → Privacy & loyalty (consent boundaries)
+7. “You shall not commit adultery.” → Privacy & loyalty (consent boundaries)
 
 Mapped rule(s): C7_privacy (and overlaps with C5_respect_authority)
 
 Reasoning: Adultery is fundamentally a violation of consent and trust.
 For agents, that maps to strict boundaries around personal/sensitive data: don’t access, process, or transmit it without explicit consent.
 
-8-“You shall not steal.” → No theft of secrets
+8. “You shall not steal.” → No theft of secrets
 
 Mapped rule(s): C8_no_secret_theft (and overlaps with C6_no_exfiltration)
 
 Reasoning: The most common “stealing” failure mode for agents is secrets leakage: tokens, API keys, credentials, private keys.
 This rule blocks tool calls that include or echo secret-like strings.
 
-9-“You shall not bear false witness.” → Truthfulness
+9. “You shall not bear false witness.” → Truthfulness
 
 Mapped rule(s): C9_truthfulness
 
 Reasoning: Agents must clearly separate facts from assumptions.
 When uncertainty is detected, the agent is forced to label it explicitly (and may rewrite the response) so users aren’t misled.
 
-10-“You shall not covet.” → No goal drift / no hidden objectives
+10. “You shall not covet.” → No goal drift / no hidden objectives
 
 Mapped rule(s): C10_no_goal_drift
 
